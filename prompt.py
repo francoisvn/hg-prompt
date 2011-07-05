@@ -103,7 +103,12 @@ def prompt(ui, repo, fs='', **opts):
             book = getattr(repo, '_bookmarkcurrent', None)
         except KeyError:
             book = getattr(repo, '_bookmarkcurrent', None)
-        return _with_groups(m.groups(), book) if book else ''
+        if book:
+            cur = repo['.'].node()
+            if repo._bookmarks[book] == cur:
+                return _with_groups(m.groups(), book)
+        else:
+            return ''
 
     def _branch(m):
         g = m.groups()
