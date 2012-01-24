@@ -304,8 +304,12 @@ def prompt(ui, repo, fs='', **opts):
     def _tags(m):
         g = m.groups()
 
-        sep = g[1][1:] if g[1] else ' '
+        sep = g[2][1:] if g[2] else ' '
         tags = repo[None].tags()
+
+        quiet = _get_filter('quiet', g)
+        if quiet:
+            tags = filter(lambda tag: tag != 'tip', tags)
 
         return _with_groups(g, sep.join(tags)) if tags else ''
 
@@ -380,7 +384,10 @@ def prompt(ui, repo, fs='', **opts):
             '(\|modified)'
             '|(\|unknown)'
             ')*': _status,
-        'tags(\|[^%s]*?)?' % brackets[-1]: _tags,
+        'tags(?:' +
+            '(\|quiet)' +
+            '|(\|[^%s]*?)' % brackets[-1] +
+            ')*': _tags,
         'task': _task,
         'tip(?:'
             '(\|node)'
