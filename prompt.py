@@ -600,6 +600,9 @@ status
 tags
      Display the tags of the current parent, separated by a space.
 
+     |quiet
+         Display the tags of the current parent, excluding the tag "tip".
+
      |SEP
          Display the tags of the current parent, separated by `SEP`.
 
