@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import with_statement
-
 '''get repository information for use in a shell prompt
 
 Take a string, parse any special variables inside, and output the result.
@@ -9,6 +7,8 @@ Take a string, parse any special variables inside, and output the result.
 Useful mostly for putting information about the current repository into
 a shell prompt.
 '''
+
+from __future__ import with_statement
 
 import re
 import os
