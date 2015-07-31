@@ -110,6 +110,8 @@ def prompt(ui, repo, fs='', **opts):
             book = getattr(repo, '_bookmarkcurrent', None)
         except KeyError:
             book = getattr(repo, '_bookmarkcurrent', None)
+        if book is None:
+            book = getattr(repo, '_activebookmark', None)
         if book:
             cur = repo['.'].node()
             if repo._bookmarks[book] == cur:
