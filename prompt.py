@@ -18,6 +18,9 @@ from os import path
 from mercurial import extensions, commands, cmdutil, help
 from mercurial.node import hex, short
 
+cmdtable = {}
+command = cmdutil.command(cmdtable)
+
 # `revrange' has been moved into module `scmutil' since v1.9.
 try :
     from mercurial import scmutil
@@ -72,6 +75,11 @@ def _get_filter_arg(f):
     else:
         return None
 
+@command('prompt',
+         [('', 'angle-brackets', None, 'use angle brackets (<>) for keywords'),
+          ('', 'cache-incoming', None, 'used internally by hg-prompt'),
+          ('', 'cache-outgoing', None, 'used internally by hg-prompt')],
+         'hg prompt STRING')
 def prompt(ui, repo, fs='', **opts):
     '''get repository information for use in a shell prompt
 
@@ -457,15 +465,6 @@ def uisetup(ui):
     except KeyError:
         pass
 
-cmdtable = {
-    "prompt":
-    (prompt, [
-        ('', 'angle-brackets', None, 'use angle brackets (<>) for keywords'),
-        ('', 'cache-incoming', None, 'used internally by hg-prompt'),
-        ('', 'cache-outgoing', None, 'used internally by hg-prompt'),
-    ],
-    'hg prompt STRING')
-}
 help.helptable += (
     (['prompt-keywords', 'prompt-keywords'], ('Keywords supported by hg-prompt'),
      (r'''hg-prompt currently supports a number of keywords.
