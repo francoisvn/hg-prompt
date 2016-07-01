@@ -14,6 +14,7 @@ import re
 import os
 import subprocess
 from datetime import datetime, timedelta
+from contextlib import closing
 from os import path
 from mercurial import extensions, commands, cmdutil, help
 from mercurial.i18n import _
@@ -34,15 +35,54 @@ CACHE_TIMEOUT = timedelta(minutes=15)
 
 FILTER_ARG = re.compile(r'\|.+\((.*)\)')
 
+
+def _daemon_spawn (fn):
+    """
+    Daemonize the function `fn`. The calling process will not be
+    terminated; the daemon will terminate after `fn` completes.
+    """
+
+    pid = os.fork()
+    if pid == 0:
+        pid = os.fork()
+        if pid == 0:
+            for fd in range(0,subprocess.MAXFD):
+                try: os.close(fd)
+                except OSError: pass
+
+            os.open(os.devnull, os.O_RDWR)
+            os.dup2(0,1)
+            os.dup2(0,2)
+
+            try:
+                fn()
+            finally:
+                # We are done with this subprocess, so exit.
+                os._exit(0)
+        else:
+            # Close the parent (the first child) of the second child.
+            os._exit(0)
+
 def _cache_remote(repo, kind):
     cache = path.join(repo.root, CACHE_PATH, kind)
     c_tmp = cache + '.temp'
 
-    # This is kind of a hack and I feel a little bit dirty for doing it.
-    IGNORE = open('NUL:','w') if subprocess.mswindows else open('/dev/null','w')
+    devnull = 'NUL:' if subprocess.mswindows else os.devnull
+    spawn = lambda fn: fn() if subprocess.mswindows else _daemon_spawn
 
-    subprocess.call(['hg', kind, '--quiet'], stdout=file(c_tmp, 'w'), stderr=IGNORE)
-    os.rename(c_tmp, cache)
+    def _update_cache():
+        # This is kind of a hack and I feel a little bit dirty for doing it.
+        with closing(open(devnull, 'w')) as IGNORE:
+            subprocess.call(
+                ['hg', kind, '--quiet'],
+                stdout=file(c_tmp, 'w'),
+                stderr=IGNORE
+            )
+            os.rename(c_tmp, cache)
+
+    # Spawn the update in a daemon process so it doesn't slow
+    # down the prompt return.
+    spawn (_update_cache)
     return
 
 def _with_groups(groups, out):
@@ -285,10 +325,12 @@ def prompt(ui, repo, fs='', **opts):
             if cache_exists:
                 with open(cache) as c:
                     count = len(c.readlines())
-                    if g[1]:
-                        return _with_groups(g, str(count)) if count else ''
+                    if g[1] and count > 0:
+                        return _with_groups(g, str(count))
+                    elif g[2]:
+                        return _with_groups(g, '0') if not count else ''
                     else:
-                        return _with_groups(g, '') if count else ''
+                        return _with_groups(g, '')
             else:
                 return ''
         return _r
@@ -428,8 +470,14 @@ def prompt(ui, repo, fs='', **opts):
             ')*': _tip,
         'update': _update,
 
-        'incoming(\|count)?': _remote('incoming'),
-        'outgoing(\|count)?': _remote('outgoing'),
+        'incoming(?:'
+            '(\|count)'
+            '|(\|zero)'
+            ')*': _remote('incoming'),
+        'outgoing(?:'
+            '(\|count)'
+            '|(\|zero)'
+            ')*': _remote('outgoing')
     }
 
     if opts.get("cache_incoming"):
@@ -508,6 +556,8 @@ incoming
 
      |count
          Display the number of incoming changesets (if greater than 0).
+     |zero
+         Display 0 if there are no incoming changesets.
 
 node
      Display the (full) changeset hash of the current parent.
@@ -531,6 +581,8 @@ outgoing
 
      |count
          Display the number of outgoing changesets (if greater than 0).
+     |zero
+         Display 0 if there are no incoming changesets.
 
 patch
      Display the topmost currently-applied patch (requires the mq
