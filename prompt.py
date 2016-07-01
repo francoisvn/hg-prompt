@@ -16,6 +16,7 @@ import subprocess
 from datetime import datetime, timedelta
 from os import path
 from mercurial import extensions, commands, cmdutil, help
+from mercurial.i18n import _
 from mercurial.node import hex, short
 
 cmdtable = {}
@@ -466,8 +467,8 @@ def uisetup(ui):
         pass
 
 help.helptable += (
-    (['prompt-keywords', 'prompt-keywords'], ('Keywords supported by hg-prompt'),
-     (r'''hg-prompt currently supports a number of keywords.
+    (['prompt-keywords'], _('Keywords supported by hg-prompt'),
+     lambda _: r'''hg-prompt currently supports a number of keywords.
 
 Some keywords support filters.  Filters can be chained when it makes
 sense to do so.  When in doubt, try it!
@@ -646,5 +647,5 @@ update
      Display `^` if the current parent is not the tip of the current branch,
      otherwise nothing.  In effect, this lets you see if running `hg update`
      would do something.
-''')),
+'''),
 )
