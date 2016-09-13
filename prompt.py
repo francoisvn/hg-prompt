@@ -68,7 +68,7 @@ def _cache_remote(repo, kind):
     c_tmp = cache + '.temp'
 
     devnull = 'NUL:' if subprocess.mswindows else os.devnull
-    spawn = lambda fn: fn() if subprocess.mswindows else _daemon_spawn
+    spawn = lambda fn: fn() if subprocess.mswindows else _daemon_spawn (fn)
 
     def _update_cache():
         # This is kind of a hack and I feel a little bit dirty for doing it.
@@ -83,7 +83,7 @@ def _cache_remote(repo, kind):
     # Spawn the update in a daemon process so it doesn't slow
     # down the prompt return.
     spawn (_update_cache)
-    return
+
 
 def _with_groups(groups, out):
     out_groups = [groups[0]] + [groups[-1]]
