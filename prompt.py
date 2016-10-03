@@ -50,7 +50,7 @@ def _cache_remote(repo, kind):
     if exit_code not in (0, 1): # (changesets_found, changesets_not_found)
         msg = "hg-prompt error: "
         if remote_path: # Failure likely due to bad remote. Is 255 a valid check?
-            msg += "Can't access remote '%s'\n" % remote_path
+            msg += "Can't access remote '%s'" % remote_path
         else:
             msg += "Error attempting 'hg %s'" % kind
         print msg
