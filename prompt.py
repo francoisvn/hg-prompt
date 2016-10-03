@@ -384,7 +384,7 @@ def prompt(ui, repo, fs='', **opts):
                 tip = head
                 break
 
-        return _with_groups(m.groups(), '^') if current_rev != repo[tip] else ''
+        return _with_groups(m.groups(), '^') if current_rev.children() else ''
 
 
     if opts.get("angle_brackets"):
