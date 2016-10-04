@@ -40,10 +40,24 @@ def _cache_remote(repo, kind):
     cache = path.join(repo.root, CACHE_PATH, kind)
     c_tmp = cache + '.temp'
 
-    # This is kind of a hack and I feel a little bit dirty for doing it.
-    IGNORE = open('NUL:','w') if subprocess.mswindows else open('/dev/null','w')
+    popenargs = ['hg', kind, '--quiet']
+    remote_path = repo.ui.config('prompt', 'remote')
+    if remote_path is not None:
+        popenargs.append(remote_path)
 
-    subprocess.call(['hg', kind, '--quiet'], stdout=file(c_tmp, 'w'), stderr=IGNORE)
+    null_path = 'NUL:' if subprocess.mswindows else '/dev/null'
+    with open(null_path, 'w') as null_fp:
+        with open(c_tmp, 'w') as stdout_fp:
+            exit_code = subprocess.call(popenargs, stdout=stdout_fp, stderr=null_fp)
+
+    if exit_code not in (0, 1): # (changesets_found, changesets_not_found)
+        msg = "hg-prompt error: "
+        if remote_path: # Failure likely due to bad remote. Is 255 a valid check?
+            msg += "Can't access remote '%s'" % remote_path
+        else:
+            msg += "Error attempting 'hg %s'" % kind
+        print msg
+
     os.rename(c_tmp, cache)
     return
 
@@ -376,7 +390,7 @@ def prompt(ui, repo, fs='', **opts):
                 tip = head
                 break
 
-        return _with_groups(m.groups(), '^') if current_rev != repo[tip] else ''
+        return _with_groups(m.groups(), '^') if current_rev.children() else ''
 
 
     if opts.get("angle_brackets"):
