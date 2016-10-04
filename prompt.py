@@ -36,53 +36,16 @@ CACHE_TIMEOUT = timedelta(minutes=15)
 FILTER_ARG = re.compile(r'\|.+\((.*)\)')
 
 
-def _daemon_spawn (fn):
-    """
-    Daemonize the function `fn`. The calling process will not be
-    terminated; the daemon will terminate after `fn` completes.
-    """
-
-    pid = os.fork()
-    if pid == 0:
-        pid = os.fork()
-        if pid == 0:
-            for fd in range(0,subprocess.MAXFD):
-                try: os.close(fd)
-                except OSError: pass
-
-            os.open(os.devnull, os.O_RDWR)
-            os.dup2(0,1)
-            os.dup2(0,2)
-
-            try:
-                fn()
-            finally:
-                # We are done with this subprocess, so exit.
-                os._exit(0)
-        else:
-            # Close the parent (the first child) of the second child.
-            os._exit(0)
-
 def _cache_remote(repo, kind):
     cache = path.join(repo.root, CACHE_PATH, kind)
     c_tmp = cache + '.temp'
 
-    devnull = 'NUL:' if subprocess.mswindows else os.devnull
-    spawn = lambda fn: fn() if subprocess.mswindows else _daemon_spawn (fn)
+    # This is kind of a hack and I feel a little bit dirty for doing it.
+    IGNORE = open('NUL:','w') if subprocess.mswindows else open('/dev/null','w')
 
-    def _update_cache():
-        # This is kind of a hack and I feel a little bit dirty for doing it.
-        with closing(open(devnull, 'w')) as IGNORE:
-            subprocess.call(
-                ['hg', kind, '--quiet'],
-                stdout=file(c_tmp, 'w'),
-                stderr=IGNORE
-            )
-            os.rename(c_tmp, cache)
-
-    # Spawn the update in a daemon process so it doesn't slow
-    # down the prompt return.
-    spawn (_update_cache)
+    subprocess.call(['hg', kind, '--quiet'], stdout=file(c_tmp, 'w'), stderr=IGNORE)
+    os.rename(c_tmp, cache)
+    return
 
 
 def _with_groups(groups, out):
