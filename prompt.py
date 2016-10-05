@@ -124,6 +124,13 @@ def prompt(ui, repo, fs='', **opts):
         currently at my-bookmark
 
     See 'hg help prompt-keywords' for a list of available keywords.
+
+    The format string may also be defined in an hgrc file::
+
+        [prompt]
+        template = {currently at {bookmark}}
+
+    This is used when no format string is passed on the command line.
     '''
 
     def _basename(m):
@@ -392,7 +399,6 @@ def prompt(ui, repo, fs='', **opts):
 
         return _with_groups(m.groups(), '^') if current_rev.children() else ''
 
-
     if opts.get("angle_brackets"):
         tag_start = r'\<([^><]*?\<)?'
         tag_end = r'(\>[^><]*?)?>'
@@ -462,6 +468,9 @@ def prompt(ui, repo, fs='', **opts):
 
     if opts.get("cache_outgoing"):
         _cache_remote(repo, 'outgoing')
+
+    if not fs:
+        fs = repo.ui.config("prompt", "template", "")
 
     for tag, repl in patterns.items():
         fs = re.sub(tag_start + tag + tag_end, repl, fs)
