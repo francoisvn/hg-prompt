@@ -102,7 +102,7 @@ def prompt(ui, repo, fs='', **opts):
     The format string may also be defined in an hgrc file::
 
         [prompt]
-        template = "{currently at {bookmark}}"
+        template = {currently at {bookmark}}
 
     This is used when no format string is passed on the command line.
     '''
