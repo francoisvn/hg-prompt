@@ -20,12 +20,12 @@ from mercurial import extensions, commands, cmdutil, help
 from mercurial.i18n import _
 from mercurial.node import hex, short
 
-# command registration moved into `registrar` module in v3.7.
+# command registration moved into `registrar` module in v4.3.
 cmdtable = {}
 try:
     from mercurial import registrar
     command = registrar.command(cmdtable)
-except ImportError:
+except (ImportError, AttributeError) as e:
     command = cmdutil.command(cmdtable)
 
 # `revrange' has been moved into module `scmutil' since v1.9.
