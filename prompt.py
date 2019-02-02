@@ -35,36 +35,7 @@ try :
 except :
     revrange = cmdutil.revrange
 
-CACHE_PATH = ".hg/prompt/cache"
-CACHE_TIMEOUT = timedelta(minutes=15)
-
 FILTER_ARG = re.compile(r'\|.+\((.*)\)')
-
-
-def _cache_remote(repo, kind):
-    cache = path.join(repo.root, CACHE_PATH, kind)
-    c_tmp = cache + '.temp'
-
-    popenargs = ['hg', kind, '--quiet']
-    remote_path = repo.ui.config('prompt', 'remote')
-    if remote_path is not None:
-        popenargs.append(remote_path)
-
-    null_path = 'NUL:' if subprocess.mswindows else '/dev/null'
-    with open(null_path, 'w') as null_fp:
-        with open(c_tmp, 'w') as stdout_fp:
-            exit_code = subprocess.call(popenargs, stdout=stdout_fp, stderr=null_fp)
-
-    if exit_code not in (0, 1): # (changesets_found, changesets_not_found)
-        msg = "hg-prompt error: "
-        if remote_path: # Failure likely due to bad remote. Is 255 a valid check?
-            msg += "Can't access remote '%s'" % remote_path
-        else:
-            msg += "Error attempting 'hg %s'" % kind
-        print msg
-
-    os.rename(c_tmp, cache)
-    return
 
 
 def _with_groups(groups, out):
@@ -99,9 +70,7 @@ def _get_filter_arg(f):
         return None
 
 @command('prompt',
-         [('', 'angle-brackets', None, 'use angle brackets (<>) for keywords'),
-          ('', 'cache-incoming', None, 'used internally by hg-prompt'),
-          ('', 'cache-outgoing', None, 'used internally by hg-prompt')],
+         [('', 'angle-brackets', None, 'use angle brackets (<>) for keywords')],
          'hg prompt STRING')
 def prompt(ui, repo, fs='', **opts):
     '''get repository information for use in a shell prompt
@@ -293,36 +262,6 @@ def prompt(ui, repo, fs='', **opts):
 
         return _with_groups(g, out) if out else ''
 
-    def _remote(kind):
-        def _r(m):
-            g = m.groups()
-
-            cache_dir = path.join(repo.root, CACHE_PATH)
-            cache = path.join(cache_dir, kind)
-            if not path.isdir(cache_dir):
-                os.makedirs(cache_dir)
-
-            cache_exists = path.isfile(cache)
-
-            cache_time = (datetime.fromtimestamp(os.stat(cache).st_mtime)
-                          if cache_exists else None)
-            if not cache_exists or cache_time < datetime.now() - CACHE_TIMEOUT:
-                if not cache_exists:
-                    open(cache, 'w').close()
-                subprocess.Popen(['hg', 'prompt', '--cache-%s' % kind])
-
-            if cache_exists:
-                with open(cache) as c:
-                    count = len(c.readlines())
-                    if g[1] and count > 0:
-                        return _with_groups(g, str(count))
-                    elif g[2]:
-                        return _with_groups(g, '0') if not count else ''
-                    else:
-                        return _with_groups(g, '')
-            else:
-                return ''
-        return _r
 
     def _rev(m):
         g = m.groups()
@@ -456,23 +395,8 @@ def prompt(ui, repo, fs='', **opts):
             '(\|node)'
             '|(\|short)'
             ')*': _tip,
-        'update': _update,
-
-        'incoming(?:'
-            '(\|count)'
-            '|(\|zero)'
-            ')*': _remote('incoming'),
-        'outgoing(?:'
-            '(\|count)'
-            '|(\|zero)'
-            ')*': _remote('outgoing')
+        'update': _update
     }
-
-    if opts.get("cache_incoming"):
-        _cache_remote(repo, 'incoming')
-
-    if opts.get("cache_outgoing"):
-        _cache_remote(repo, 'outgoing')
 
     if not fs:
         fs = repo.ui.config("prompt", "template", "")
@@ -480,30 +404,6 @@ def prompt(ui, repo, fs='', **opts):
     for tag, repl in patterns.items():
         fs = re.sub(tag_start + tag + tag_end, repl, fs)
     ui.status(fs)
-
-def _pull_with_cache(orig, ui, repo, *args, **opts):
-    """Wrap the pull command to delete the incoming cache as well."""
-    res = orig(ui, repo, *args, **opts)
-    cache = path.join(repo.root, CACHE_PATH, 'incoming')
-    if path.isfile(cache):
-        os.remove(cache)
-    return res
-
-def _push_with_cache(orig, ui, repo, *args, **opts):
-    """Wrap the push command to delete the outgoing cache as well."""
-    res = orig(ui, repo, *args, **opts)
-    cache = path.join(repo.root, CACHE_PATH, 'outgoing')
-    if path.isfile(cache):
-        os.remove(cache)
-    return res
-
-def uisetup(ui):
-    extensions.wrapcommand(commands.table, 'pull', _pull_with_cache)
-    extensions.wrapcommand(commands.table, 'push', _push_with_cache)
-    try:
-        extensions.wrapcommand(extensions.find("fetch").cmdtable, 'fetch', _pull_with_cache)
-    except KeyError:
-        pass
 
 help.helptable += (
     (['prompt-keywords'], _('Keywords supported by hg-prompt'),
@@ -534,22 +434,6 @@ count
      |REVSET
          The revset to count.
 
-incoming
-     Display nothing, but if the default path contains incoming changesets the
-     extra text will be expanded.
-
-     For example: `{incoming changes{incoming}}` will expand to
-     `incoming changes` if there are changes, otherwise nothing.
-
-     Checking for incoming changesets is an expensive operation, so `hg-prompt`
-     will cache the results in `.hg/prompt/cache/` and refresh them every 15
-     minutes.
-
-     |count
-         Display the number of incoming changesets (if greater than 0).
-     |zero
-         Display 0 if there are no incoming changesets.
-
 node
      Display the (full) changeset hash of the current parent.
 
@@ -558,22 +442,6 @@ node
 
      |merge
          Display the hash of the changeset you're merging with.
-
-outgoing
-     Display nothing, but if the current repository contains outgoing
-     changesets (to default) the extra text will be expanded.
-
-     For example: `{outgoing changes{outgoing}}` will expand to
-     `outgoing changes` if there are changes, otherwise nothing.
-
-     Checking for outgoing changesets is an expensive operation, so `hg-prompt`
-     will cache the results in `.hg/prompt/cache/` and refresh them every 15
-     minutes.
-
-     |count
-         Display the number of outgoing changesets (if greater than 0).
-     |zero
-         Display 0 if there are no incoming changesets.
 
 patch
      Display the topmost currently-applied patch (requires the mq
