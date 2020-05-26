@@ -279,9 +279,9 @@ def prompt(ui, repo, fs='', **opts):
     def _status(m):
         g = m.groups()
 
-        st = repo.status(unknown=True)[:5]
-        modified = any(st[:4])
-        unknown = len(st[-1]) > 0
+        st = repo.status(unknown=True)
+        modified = any((st.modified, st.added, st.removed, st.deleted))
+        unknown = len(st.unknown) > 0
 
         flag = ''
         if '|modified' not in g and '|unknown' not in g:
