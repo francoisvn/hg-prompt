@@ -295,10 +295,12 @@ def prompt(ui, repo, fs='', **opts):
         return _with_groups(g, flag) if flag else ''
 
     def _tags(m):
+        # Show tags of p1.
+        # As an alternative, we could show tags of p1 and p2.
         g = m.groups()
 
         sep = g[2][1:] if g[2] else ' '
-        tags = repo[None].tags()
+        tags = repo['.'].tags()
 
         quiet = _get_filter('quiet', g)
         if quiet:
