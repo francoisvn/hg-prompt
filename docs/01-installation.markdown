@@ -7,22 +7,19 @@ Installing `hg-prompt` requires [Python][] 2.5+ and (obviously) Mercurial.
 
 First, clone the repository:
 
-    :::console
     $ hg clone http://bitbucket.org/sjl/hg-prompt/
 
 Edit the `[extensions]` section in your `~/.hgrc` file:
 
-    :::cfg
     [extensions]
     prompt = (path to)/prompt.py
 
 Make sure everything is working:
 
-    :::console
     $ hg prompt 'test'
     test
 
 Take a look at the [Quick Start][] guide to learn how to put some useful
 information into your shell prompt.
 
-[Quick Start]: /quickstart/
+[Quick Start]: ../quickstart/

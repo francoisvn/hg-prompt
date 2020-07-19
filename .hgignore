@@ -3,6 +3,5 @@ syntax: glob
 .DS_Store
 *.pyc
 .idea/
-docs/.html
-docs/.tmp
+docs/build
 
