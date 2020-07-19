@@ -341,7 +341,7 @@ def prompt(ui, repo, fs='', **opts):
                 tip = head
                 break
 
-        return _with_groups(m.groups(), '^') if current_rev.children() else ''
+        return _with_groups(m.groups(), '^') if repo[tip].node() != current_rev.node() else ''
 
     if opts.get("angle_brackets"):
         tag_start = r'\<([^><]*?\<)?'
