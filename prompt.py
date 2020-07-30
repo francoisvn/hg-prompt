@@ -8,7 +8,7 @@ Useful mostly for putting information about the current repository into
 a shell prompt.
 '''
 
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 
 import re
 import os
@@ -42,7 +42,7 @@ def _with_groups(groups, out):
     out_groups = [groups[0]] + [groups[-1]]
 
     if any(out_groups) and not all(out_groups):
-        print 'Error parsing prompt string.  Mismatched braces?'
+        print ('Error parsing prompt string.  Mismatched braces?')
 
     out = out.replace('%', '%%')
     return ("%s" + out + "%s") % (out_groups[0][:-1] if out_groups[0] else '',
