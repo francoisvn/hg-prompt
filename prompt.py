@@ -69,9 +69,12 @@ def _get_filter_arg(f):
     else:
         return None
 
-@command('prompt',
-         [('', 'angle-brackets', None, 'use angle brackets (<>) for keywords')],
-         'hg prompt STRING')
+def b(s):
+    return bytes(s, 'utf-8')
+
+@command(b('prompt'),
+         [(b(''), b('angle-brackets'), None, b('use angle brackets (<>) for keywords'))],
+         b('hg prompt STRING'))
 def prompt(ui, repo, fs='', **opts):
     '''get repository information for use in a shell prompt
 
