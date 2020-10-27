@@ -70,7 +70,7 @@ def _get_filter_arg(f):
         return None
 
 def b(s):
-    return bytes(s, 'utf-8')
+    return bytes(s.encode("utf-8"))
 
 @command(b('prompt'),
          [(b(''), b('angle-brackets'), None, b('use angle brackets (<>) for keywords'))],
