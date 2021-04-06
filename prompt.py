@@ -17,7 +17,6 @@ from datetime import datetime, timedelta
 from contextlib import closing
 from os import path
 from mercurial import extensions, commands, cmdutil, help
-from mercurial.i18n import _
 from mercurial.node import hex, short
 
 # command registration moved into `registrar` module in v4.3.
@@ -37,20 +36,20 @@ except :
 
 FILTER_ARG = re.compile(r'\|.+\((.*)\)')
 
-
 def _with_groups(groups, out):
     out_groups = [groups[0]] + [groups[-1]]
 
     if any(out_groups) and not all(out_groups):
         print ('Error parsing prompt string.  Mismatched braces?')
 
+    out = s(out)
     out = out.replace('%', '%%')
     return ("%s" + out + "%s") % (out_groups[0][:-1] if out_groups[0] else '',
                                   out_groups[1][1:] if out_groups[1] else '')
 
 def _get_filter(name, g):
     '''Return the filter with the given name, or None if it was not used.'''
-    matching_filters = filter(lambda s: s and s.startswith('|%s' % name), g)
+    matching_filters = list(filter(lambda s: s and s.startswith('|%s' % name), g))
     if not matching_filters:
         return None
 
@@ -72,10 +71,13 @@ def _get_filter_arg(f):
 def b(s):
     return bytes(s.encode("utf-8"))
 
+def s(b):
+    return b.decode("utf-8")
+
 @command(b('prompt'),
          [(b(''), b('angle-brackets'), None, b('use angle brackets (<>) for keywords'))],
          b('hg prompt STRING'))
-def prompt(ui, repo, fs='', **opts):
+def prompt(ui, repo, fs=b(''), **opts):
     '''get repository information for use in a shell prompt
 
     Take a string and output it for use in a shell prompt. You can use
@@ -115,7 +117,7 @@ def prompt(ui, repo, fs='', **opts):
 
     def _bookmark(m):
         try:
-            book = extensions.find('bookmarks').current(repo)
+            book = extensions.find(b('bookmarks')).current(repo)
         except AttributeError:
             book = getattr(repo, '_bookmarkcurrent', None)
         except KeyError:
@@ -123,7 +125,7 @@ def prompt(ui, repo, fs='', **opts):
         if book is None:
             book = getattr(repo, '_activebookmark', None)
         if book:
-            cur = repo['.'].node()
+            cur = repo[b('.')].node()
             if repo._bookmarks[book] == cur:
                 return _with_groups(m.groups(), book)
         else:
@@ -147,16 +149,16 @@ def prompt(ui, repo, fs='', **opts):
         p = repo[None].parents()[0]
         pn = p.node()
         branch = repo.dirstate.branch()
-        closed = (p.extra().get('close')
+        closed = (p.extra().get(b('close'))
                   and pn in repo.branchheads(branch, closed=True))
-        out = 'X' if (not quiet) and closed else ''
+        out = b('X') if (not quiet) and closed else ''
 
         return _with_groups(g, out) if out else ''
 
     def _count(m):
         g = m.groups()
-        query = [g[1][1:]] if g[1] else ['all()']
-        return _with_groups(g, str(len(revrange(repo, query))))
+        query = [b(g[1][1:])] if g[1] else [b('all()')]
+        return _with_groups(g, b("%d" % len(revrange(repo, query))))
 
     def _node(m):
         g = m.groups()
@@ -168,13 +170,13 @@ def prompt(ui, repo, fs='', **opts):
         format = short if '|short' in g else hex
 
         node = format(parents[p].node()) if p is not None else None
-        return _with_groups(g, str(node)) if node else ''
+        return _with_groups(g, node) if node else ''
 
     def _patch(m):
         g = m.groups()
 
         try:
-            extensions.find('mq')
+            extensions.find(b('mq'))
         except KeyError:
             return ''
 
@@ -185,17 +187,17 @@ def prompt(ui, repo, fs='', **opts):
 
         if _get_filter('topindex', g):
             if len(q.applied):
-                out = str(len(q.applied) - 1)
+                out = b('%d' % (len(q.applied) - 1))
             else:
-                out = ''
+                out = b('')
         elif _get_filter('applied', g):
-            out = str(len(q.applied))
+            out = b('%d' % len(q.applied))
         elif _get_filter('unapplied', g):
-            out = str(len(q.unapplied(repo)))
+            out = b('%d' % len(q.unapplied(repo)))
         elif _get_filter('count', g):
-            out = str(len(q.series))
+            out = b('%d' % len(q.series))
         else:
-            out = q.applied[-1].name if q.applied else ''
+            out = q.applied[-1].name if q.applied else b('')
 
         return _with_groups(g, out) if out else ''
 
@@ -203,25 +205,25 @@ def prompt(ui, repo, fs='', **opts):
         g = m.groups()
 
         try:
-            extensions.find('mq')
+            extensions.find(b('mq'))
         except KeyError:
             return ''
 
         join_filter = _get_filter('join', g)
         join_filter_arg = _get_filter_arg(join_filter)
-        sep = join_filter_arg if join_filter else ' -> '
+        sep = b(join_filter_arg) if join_filter else b(' -> ')
 
         patches = repo.mq.series
         applied = [p.name for p in repo.mq.applied]
-        unapplied = filter(lambda p: p not in applied, patches)
+        unapplied = list(filter(lambda p: p not in applied, patches))
 
         if _get_filter('hide_applied', g):
-            patches = filter(lambda p: p not in applied, patches)
+            patches = list(filter(lambda p: p not in applied, patches))
         if _get_filter('hide_unapplied', g):
-            patches = filter(lambda p: p not in unapplied, patches)
+            patches = list(filter(lambda p: p not in unapplied, patches))
 
         if _get_filter('reverse', g):
-            patches = reversed(patches)
+            patches = list(reversed(patches))
 
         pre_applied_filter = _get_filter('pre_applied', g)
         pre_applied_filter_arg = _get_filter_arg(pre_applied_filter)
@@ -232,6 +234,18 @@ def prompt(ui, repo, fs='', **opts):
         pre_unapplied_filter_arg = _get_filter_arg(pre_unapplied_filter)
         post_unapplied_filter = _get_filter('post_unapplied', g)
         post_unapplied_filter_arg = _get_filter_arg(post_unapplied_filter)
+
+        if pre_applied_filter_arg:
+            pre_applied_filter_arg = b(pre_applied_filter_arg)
+
+        if post_applied_filter_arg:
+            post_applied_filter_arg = b(post_applied_filter_arg)
+
+        if pre_unapplied_filter_arg:
+            pre_unapplied_filter_arg = b(pre_unapplied_filter_arg)
+
+        if post_unapplied_filter_arg:
+            post_unapplied_filter_arg = b(post_unapplied_filter_arg)
 
         for n, patch in enumerate(patches):
             if patch in applied:
@@ -251,20 +265,19 @@ def prompt(ui, repo, fs='', **opts):
         g = m.groups()
 
         try:
-            extensions.find('mq')
+            extensions.find(b('mq'))
         except KeyError:
             return ''
 
         q = repo.mq
 
-        out = os.path.basename(q.path)
-        if out == 'patches' and not os.path.isdir(q.path):
-            out = ''
-        elif out.startswith('patches-'):
+        print(repr(out))
+        if out == b('patches') and not os.path.isdir(q.path):
+            out = b('')
+        elif out.startswith(b('patches-')):
             out = out[8:]
 
         return _with_groups(g, out) if out else ''
-
 
     def _rev(m):
         g = m.groups()
@@ -274,7 +287,7 @@ def prompt(ui, repo, fs='', **opts):
         parent = parent if len(parents) > parent else None
 
         rev = parents[parent].rev() if parent is not None else -1
-        return _with_groups(g, str(rev)) if rev >= 0 else ''
+        return _with_groups(g, b('%d' % rev)) if rev >= 0 else ''
 
     def _root(m):
         return _with_groups(m.groups(), repo.root) if repo.root else ''
@@ -286,14 +299,14 @@ def prompt(ui, repo, fs='', **opts):
         modified = any((st.modified, st.added, st.removed, st.deleted))
         unknown = len(st.unknown) > 0
 
-        flag = ''
+        flag = b('')
         if '|modified' not in g and '|unknown' not in g:
-            flag = '!' if modified else '?' if unknown else ''
+            flag = b('!') if modified else b('?') if unknown else ''
         else:
             if '|modified' in g:
-                flag += '!' if modified else ''
+                flag += b('!') if modified else b('')
             if '|unknown' in g:
-                flag += '?' if unknown else ''
+                flag += b('?') if unknown else b('')
 
         return _with_groups(g, flag) if flag else ''
 
@@ -302,18 +315,18 @@ def prompt(ui, repo, fs='', **opts):
         # As an alternative, we could show tags of p1 and p2.
         g = m.groups()
 
-        sep = g[2][1:] if g[2] else ' '
-        tags = repo['.'].tags()
+        sep = b(g[2][1:]) if g[2] else b(' ')
+        tags = repo[b('.')].tags()
 
         quiet = _get_filter('quiet', g)
         if quiet:
-            tags = filter(lambda tag: tag != 'tip', tags)
+            tags = filter(lambda tag: tag != b('tip'), tags)
 
         return _with_groups(g, sep.join(tags)) if tags else ''
 
     def _task(m):
         try:
-            task = extensions.find('tasks').current(repo)
+            task = extensions.find(b('tasks')).current(repo)
             return _with_groups(m.groups(), task) if task else ''
         except KeyError:
             return ''
@@ -325,9 +338,9 @@ def prompt(ui, repo, fs='', **opts):
 
         tip = repo[len(repo) - 1]
         rev = tip.rev()
-        tip = format(tip.node()) if '|node' in g else tip.rev()
+        tip = format(tip.node()) if '|node' in g else b('%d' % tip.rev())
 
-        return _with_groups(g, str(tip)) if rev >= 0 else ''
+        return _with_groups(g, tip) if rev >= 0 else ''
 
     def _update(m):
         current_rev = repo[None].parents()[0]
@@ -346,7 +359,7 @@ def prompt(ui, repo, fs='', **opts):
                 tip = head
                 break
 
-        return _with_groups(m.groups(), '^') if repo[tip].node() != current_rev.node() else ''
+        return _with_groups(m.groups(), b('^')) if repo[tip].node() != current_rev.node() else ''
 
     if opts.get("angle_brackets"):
         tag_start = r'\<([^><]*?\<)?'
@@ -404,15 +417,18 @@ def prompt(ui, repo, fs='', **opts):
     }
 
     if not fs:
-        fs = repo.ui.config("prompt", "template", "")
+        fs = repo.ui.config(b"prompt", b"template", b"")
 
+    fs = s(fs)
     for tag, repl in patterns.items():
         fs = re.sub(tag_start + tag + tag_end, repl, fs)
+    fs = b(fs)
+
     ui.status(fs)
 
 help.helptable += (
-    (['prompt-keywords'], _('Keywords supported by hg-prompt'),
-     lambda _: r'''hg-prompt currently supports a number of keywords.
+    ([b('prompt-keywords')], b('Keywords supported by hg-prompt'),
+     lambda _: b('''hg-prompt currently supports a number of keywords.
 
 Some keywords support filters.  Filters can be chained when it makes
 sense to do so.  When in doubt, try it!
@@ -563,5 +579,5 @@ update
      Display `^` if the current parent is not the tip of the current branch,
      otherwise nothing.  In effect, this lets you see if running `hg update`
      would do something.
-'''),
+''')),
 )
